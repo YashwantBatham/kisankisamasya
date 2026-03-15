@@ -182,39 +182,52 @@ async def download_audio(audio_id: str) -> bytes:
 # ─────────────────────────────────
 async def voice_to_text(audio_bytes: bytes) -> str:
     """
-    Send voice to Sarvam AI
-    Get Hindi text back!
+    Fixed! Sarvam needs 'file' field!
     """
+    import io
 
-    # Convert to base64
-    audio_b64 = base64.b64encode(audio_bytes).decode()
+    # ⚠️ KEY FIX:
+    # Sarvam needs multipart form data
+    # with field name exactly "file"
 
     headers = {
-        "api-subscription-key": SARVAM_API_KEY,
-        "Content-Type": "application/json"
+        "api-subscription-key": SARVAM_API_KEY
     }
 
-    payload = {
+    # Create form data exactly as Sarvam wants
+    files = {
+        "file": (
+            "audio.ogg",           # filename
+            io.BytesIO(audio_bytes), # file content
+            "audio/ogg"            # content type
+        )
+    }
+
+    # Other fields as form data (not json!)
+    data = {
         "model": "saarika:v2",
         "language_code": "hi-IN",
-        "audio": audio_b64,
-        "with_timestamps": False
+        "with_timestamps": "false"
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             res = await client.post(
                 f"{SARVAM_BASE}/speech-to-text",
-                json=payload,
-                headers=headers
+                headers=headers,
+                files=files,
+                data=data       # ← separate from files!
             )
+
+            print(f"ASR Status: {res.status_code}")
+            print(f"ASR Response: {res.text}")
 
             if res.status_code == 200:
                 text = res.json().get("transcript", "")
-                print(f"✅ ASR: {text}")
+                print(f"✅ Heard: {text}")
                 return text
 
-            print(f"❌ ASR Error: {res.text}")
+            print(f"❌ ASR Failed: {res.text}")
             return ""
 
     except Exception as e:
