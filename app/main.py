@@ -205,7 +205,7 @@ async def voice_to_text(audio_bytes: bytes) -> str:
 
     # Other fields as form data (not json!)
     data = {
-        "model": "saarika:v2",
+        "model": "saarika:v2.5",
         "language_code": "hi-IN",
         "with_timestamps": "false"
     }
