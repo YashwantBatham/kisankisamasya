@@ -191,7 +191,7 @@ async def voice_to_text(audio_bytes: bytes) -> str:
     # with field name exactly "file"
 
     headers = {
-        "api-subscription-key": SARVAM_API_KEY
+        "api-subscription-key": sk_e34d2oro_DL1sLHQB1xlTJiqtgcwhFa1L
     }
 
     # Create form data exactly as Sarvam wants
