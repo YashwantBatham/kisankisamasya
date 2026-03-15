@@ -3,6 +3,11 @@ import httpx
 import os
 import base64
 from dotenv import load_dotenv
+from app.mandi_service import (
+    detect_crop,
+    detect_state,
+    get_live_mandi_prices
+)
 
 load_dotenv()
 
@@ -239,11 +244,43 @@ async def voice_to_text(audio_bytes: bytes) -> str:
 # AI BRAIN — Smart Replies
 # ─────────────────────────────────
 async def get_ai_reply(user_text: str) -> str:
-    """
-    Get intelligent farming advice
-    Using Sarvam AI
-    """
 
+    # ─────────────────────────────
+    # CHECK FOR MANDI PRICE QUERY
+    # ─────────────────────────────
+    price_words = [
+        "भाव", "price", "rate", "दाम",
+        "bhav", "mandi", "मंडी", "बाज़ार",
+        "कितने", "रेट", "today", "आज"
+    ]
+
+    is_price = any(
+        w in user_text.lower()
+        for w in price_words
+    )
+
+    if is_price:
+        crop = detect_crop(user_text)
+        if crop:
+            state = detect_state(user_text)
+            print(f"🌾 Price query: {crop}")
+            return await get_live_mandi_prices(
+                crop, state
+            )
+        else:
+            return (
+                "📊 किस फसल का भाव चाहिए?\n\n"
+                "जैसे लिखें:\n"
+                "• टमाटर का भाव\n"
+                "• प्याज का भाव\n"
+                "• गेहूं का रेट\n"
+                "• महाराष्ट्र में प्याज\n\n"
+                "फसल का नाम बताएं! 🌾"
+            )
+
+    # ─────────────────────────────
+    # OTHER QUESTIONS → Sarvam AI
+    # ─────────────────────────────
     headers = {
         "api-subscription-key": SARVAM_API_KEY,
         "Content-Type": "application/json"
