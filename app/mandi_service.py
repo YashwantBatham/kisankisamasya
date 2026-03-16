@@ -230,7 +230,7 @@ def format_prices(crop: str, records: list) -> str:
     msg = f"📊 *{hindi} के आज के भाव*\n"
     msg += "━━━━━━━━━━━━━━\n\n"
 
-    for r in records[:5]:
+    for r in records[:3]:
 
         # EXACT field names from API!
         state = r.get("State", "")

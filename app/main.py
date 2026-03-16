@@ -130,10 +130,16 @@ async def receive_message(request: Request):
             reply_text = await get_ai_reply(transcript)
 
             # STEP 4: Text → Voice (Sarvam TTS)
-            audio_reply = await text_to_voice(reply_text)
+            await send_text(from_number, reply_text)
+
+            short_reply = make_short_for_tts(reply_text)
+
+            
 
             # STEP 5: Send text reply always
-            await send_text(from_number, reply_text)
+
+            
+            audio_reply = await text_to_voice(reply_text)
 
             # STEP 6: Send voice reply if worked
             if audio_reply:
@@ -335,6 +341,61 @@ async def get_ai_reply(user_text: str) -> str:
 # ─────────────────────────────────
 # TEXT → VOICE (Sarvam TTS)
 # ─────────────────────────────────
+
+def make_short_for_tts(text: str) -> str:
+    """
+    Make short version for TTS
+    Max 500 characters!
+    
+    For mandi prices:
+    Just read top 2 markets
+    
+    For other replies:
+    Trim to 400 chars
+    """
+
+    # If short enough, return as is
+    if len(text) <= 400:
+        return text
+
+    # For mandi price messages
+    # Extract just key info
+    if "के आज के भाव" in text or "भाव" in text:
+
+        lines = text.split("\n")
+        short = ""
+        market_count = 0
+
+        for line in lines:
+            # Stop after 2 markets
+            if "🏪" in line:
+                market_count += 1
+                if market_count > 2:
+                    break
+
+            short += line + "\n"
+
+            # Stop if getting long
+            if len(short) > 380:
+                break
+
+        # Add ending
+        short += "\nज़्यादा भाव के लिए text करें! 😊"
+
+        return short[:480]
+
+    # For other long messages
+    # Just trim with nice ending
+    trimmed = text[:380]
+
+    # Don't cut in middle of word
+    last_space = trimmed.rfind(" ")
+    if last_space > 300:
+        trimmed = trimmed[:last_space]
+
+    return trimmed + "... 😊"
+
+
 async def text_to_voice(text: str) -> bytes:
     """
     Convert Hindi text to voice
