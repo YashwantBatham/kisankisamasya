@@ -148,21 +148,26 @@ async def get_live_mandi_prices(
     crop: str,
     state: str = ""
 ) -> str:
-    """
-    Get LIVE prices from Govt API!
-    """
 
-    print(f"🌐 Fetching: {crop} | State: {state}")
+    # Get today's date in correct format
+    from datetime import datetime, timedelta
+    
+    today = datetime.now()
+    
+    # Try today first
+    # Format: dd-MM-yyyy (API format)
+    today_str = today.strftime("%d-%m-%Y")
+    
+    print(f"🌐 Fetching: {crop} | {state} | {today_str}")
 
-    # Build params
     params = {
         "api-key": MANDI_API_KEY,
         "format": "json",
         "limit": "10",
-        "filters[Commodity]": crop
+        "filters[Commodity]": crop,
+        "filters[Arrival_Date]": today_str
     }
 
-    # Add state if provided
     if state:
         params["filters[State]"] = state
 
@@ -181,18 +186,48 @@ async def get_live_mandi_prices(
             if res.status_code == 200:
                 data = res.json()
                 records = data.get("records", [])
-                total = data.get("total", 0)
 
-                print(f"✅ Records: {len(records)}")
-                print(f"✅ Total available: {total}")
+                print(f"✅ Today records: {len(records)}")
+
+                # If no today data, try yesterday
+                if not records:
+                    yesterday = today - timedelta(days=1)
+                    yesterday_str = yesterday.strftime(
+                        "%d-%m-%Y"
+                    )
+                    print(f"🔄 Trying yesterday: {yesterday_str}")
+                    
+                    params["filters[Arrival_Date]"] = yesterday_str
+                    
+                    res2 = await client.get(
+                        MANDI_API_URL,
+                        params=params
+                    )
+                    
+                    if res2.status_code == 200:
+                        data2 = res2.json()
+                        records = data2.get("records", [])
+                        print(f"✅ Yesterday records: {len(records)}")
+
+                # Still no data - try without date
+                if not records:
+                    print("🔄 Trying without date filter...")
+                    del params["filters[Arrival_Date]"]
+                    
+                    res3 = await client.get(
+                        MANDI_API_URL,
+                        params=params
+                    )
+                    
+                    if res3.status_code == 200:
+                        data3 = res3.json()
+                        records = data3.get("records", [])
 
                 if not records:
-                    # No data - ask for state
                     return ask_for_state(crop)
 
                 return format_prices(crop, records)
 
-            print(f"❌ API Error: {res.text[:100]}")
             return fallback_prices(crop)
 
     except Exception as e:
@@ -217,44 +252,41 @@ def ask_for_state(crop: str) -> str:
 
 
 def format_prices(crop: str, records: list) -> str:
-    """
-    Format prices into Hindi message
-    Using CORRECT field names from API!
-    State, District, Market,
-    Min_Price, Max_Price, Modal_Price,
-    Arrival_Date
-    """
 
     hindi = get_hindi_name(crop)
+    
+    # Get date from first record
+    first_date = records[0].get(
+        "Arrival_Date", ""
+    ) if records else ""
 
-    msg = f"📊 *{hindi} के आज के भाव*\n"
+    msg = f"📊 *{hindi} के भाव*\n"
+    
+    if first_date:
+        msg += f"📅 दिनांक: {first_date}\n"
+    
     msg += "━━━━━━━━━━━━━━\n\n"
 
     for r in records[:3]:
 
-        # EXACT field names from API!
         state = r.get("State", "")
         district = r.get("District", "")
         market = r.get("Market", "")
         min_p = r.get("Min_Price", "N/A")
         max_p = r.get("Max_Price", "N/A")
         modal_p = r.get("Modal_Price", "N/A")
-        date = r.get("Arrival_Date", "")
         variety = r.get("Variety", "")
 
         msg += f"🏪 {market}\n"
         msg += f"📍 {district}, {state}\n"
-        if date:
-            msg += f"📅 {date}\n"
-        if variety:
+        if variety and variety != crop:
             msg += f"🌱 किस्म: {variety}\n"
         msg += f"💰 न्यूनतम: ₹{min_p}/क्विंटल\n"
         msg += f"💰 अधिकतम: ₹{max_p}/क्विंटल\n"
         msg += f"💰 औसत: ₹{modal_p}/क्विंटल\n\n"
 
     msg += "━━━━━━━━━━━━━━\n"
-    msg += "📡 स्रोत: भारत सरकार 🇮🇳\n"
-    msg += "🔄 रोज़ अपडेट होता है"
+    msg += "📡 स्रोत: भारत सरकार 🇮🇳"
 
     return msg
 
