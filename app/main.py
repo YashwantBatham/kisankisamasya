@@ -349,8 +349,8 @@ async def text_to_voice(text: str) -> bytes:
     payload = {
         "inputs": [text],
         "target_language_code": "hi-IN",
-        "speaker": "meera",
-        "model": "bulbul:v1",
+        "speaker": "anushka",
+        "model": "bulbul:v2",
         "enable_preprocessing": True
     }
 

@@ -167,7 +167,7 @@ async def get_live_mandi_prices(
 
     try:
         async with httpx.AsyncClient(
-            timeout=15
+            timeout=30
         ) as client:
 
             res = await client.get(
