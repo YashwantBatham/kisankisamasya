@@ -150,11 +150,11 @@ async def get_live_mandi_prices(
 ) -> str:
     """
     Get LIVE prices from Govt API!
-    Real data updated daily! 🌾
     """
 
-    print(f"🌐 Fetching: {crop} | {state}")
+    print(f"🌐 Fetching: {crop} | State: {state}")
 
+    # Build params
     params = {
         "api-key": MANDI_API_KEY,
         "format": "json",
@@ -162,6 +162,7 @@ async def get_live_mandi_prices(
         "filters[Commodity]": crop
     }
 
+    # Add state if provided
     if state:
         params["filters[State]"] = state
 
@@ -180,10 +181,14 @@ async def get_live_mandi_prices(
             if res.status_code == 200:
                 data = res.json()
                 records = data.get("records", [])
+                total = data.get("total", 0)
+
                 print(f"✅ Records: {len(records)}")
+                print(f"✅ Total available: {total}")
 
                 if not records:
-                    return no_data_msg(crop)
+                    # No data - ask for state
+                    return ask_for_state(crop)
 
                 return format_prices(crop, records)
 
@@ -195,8 +200,30 @@ async def get_live_mandi_prices(
         return fallback_prices(crop)
 
 
+def ask_for_state(crop: str) -> str:
+    """Ask farmer to specify state"""
+    hindi = get_hindi_name(crop)
+    return (
+        f"📊 {hindi} का भाव जानने के लिए\n"
+        f"राज्य का नाम बताएं!\n\n"
+        f"जैसे लिखें:\n"
+        f"• महाराष्ट्र में {hindi}\n"
+        f"• उत्तर प्रदेश में {hindi}\n"
+        f"• मध्य प्रदेश में {hindi}\n"
+        f"• राजस्थान में {hindi}\n"
+        f"• गुजरात में {hindi}\n\n"
+        f"राज्य बताएं! 😊"
+    )
+
+
 def format_prices(crop: str, records: list) -> str:
-    """Format prices into Hindi message"""
+    """
+    Format prices into Hindi message
+    Using CORRECT field names from API!
+    State, District, Market,
+    Min_Price, Max_Price, Modal_Price,
+    Arrival_Date
+    """
 
     hindi = get_hindi_name(crop)
 
@@ -204,18 +231,23 @@ def format_prices(crop: str, records: list) -> str:
     msg += "━━━━━━━━━━━━━━\n\n"
 
     for r in records[:5]:
-        market = r.get("market", "")
-        district = r.get("district", "")
-        state = r.get("state", "")
-        min_p = r.get("min_price", "N/A")
-        max_p = r.get("max_price", "N/A")
-        modal_p = r.get("modal_price", "N/A")
-        date = r.get("arrival_date", "")
+
+        # EXACT field names from API!
+        state = r.get("State", "")
+        district = r.get("District", "")
+        market = r.get("Market", "")
+        min_p = r.get("Min_Price", "N/A")
+        max_p = r.get("Max_Price", "N/A")
+        modal_p = r.get("Modal_Price", "N/A")
+        date = r.get("Arrival_Date", "")
+        variety = r.get("Variety", "")
 
         msg += f"🏪 {market}\n"
         msg += f"📍 {district}, {state}\n"
         if date:
             msg += f"📅 {date}\n"
+        if variety:
+            msg += f"🌱 किस्म: {variety}\n"
         msg += f"💰 न्यूनतम: ₹{min_p}/क्विंटल\n"
         msg += f"💰 अधिकतम: ₹{max_p}/क्विंटल\n"
         msg += f"💰 औसत: ₹{modal_p}/क्विंटल\n\n"
